@@ -23,6 +23,6 @@ cppcheck:
 clean: base_clean
 
 run: release_debug/bin/merger
-	./release_debug/bin/merger xml/coverage_std.xml xml/coverage_mkl.xml target.xml Catch test lib
+	./release_debug/bin/merger --ignore=Catch --ignore=test --ignore=lib xml/coverage_std.xml xml/coverage_mkl.xml target.xml
 
 include make-utils/cpp-utils-finalize.mk
