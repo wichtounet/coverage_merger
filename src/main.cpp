@@ -39,7 +39,13 @@ int main(int argc, char* argv[]){
 
 
 
+    //Find the root nodes
     auto source_root_node = source_doc.first_node("coverage");
+    auto inc_root_node = inc_doc.first_node("coverage");
+
+    //Find the "packages" nodes
+    auto packages_source = source_root_node->first_node("packages");
+    auto packages_inc = inc_root_node->first_node("packages");
 
     //Create root node in target
     auto* target_root_node = target_doc.allocate_node(rapidxml::node_element, "coverage");
@@ -54,7 +60,7 @@ int main(int argc, char* argv[]){
     auto packages_target = target_doc.allocate_node(rapidxml::node_element, "packages");
     target_root_node->append_node(packages_target);
 
-    auto packages_source = source_root_node->first_node("packages");
+    //1. Copy all relevant packages from source -> target
 
     for(auto* package_node = packages_source->first_node("package"); package_node; package_node = package_node->next_sibling()){
         std::string package_name(package_node->first_attribute("name")->value());
@@ -80,7 +86,72 @@ int main(int argc, char* argv[]){
             //Create the "package" node
             auto package_target = target_doc.allocate_node(rapidxml::node_element, "package");
             package_target->append_attribute(target_doc.allocate_attribute("name", package_node->first_attribute("name")->value()));
-            //TODO Copy all attributes
+            package_target->append_attribute(target_doc.allocate_attribute("branch-rate", package_node->first_attribute("branch-rate")->value()));
+            package_target->append_attribute(target_doc.allocate_attribute("line-rate", package_node->first_attribute("line-rate")->value()));
+            package_target->append_attribute(target_doc.allocate_attribute("complexity", package_node->first_attribute("complexity")->value()));
+            packages_target->append_node(package_target);
+
+            //Create the "classes" node
+            auto classes_target = target_doc.allocate_node(rapidxml::node_element, "classes");
+            package_target->append_node(classes_target);
+
+            auto classes_sources = package_node->first_node("classes");
+
+            for(auto* class_source = classes_sources->first_node("class"); class_source; class_source = class_source->next_sibling()){
+                std::string class_name(class_source->first_attribute("name")->value());
+                std::string class_branch_rate(class_source->first_attribute("branch-rate")->value());
+                std::string class_line_rate(class_source->first_attribute("line-rate")->value());
+
+                if(!(class_branch_rate == "0.0" && class_line_rate == "0.0")){
+                    //Copy "class" node into target
+                    auto* class_target = source_doc.clone_node(class_source);
+                    classes_target->append_node(class_target);
+                }
+            }
+        }
+    }
+
+    //2. Copy all relevant packages (and not in target) from inc -> target
+
+    for(auto* package_node = packages_inc->first_node("package"); package_node; package_node = package_node->next_sibling()){
+        std::string package_name(package_node->first_attribute("name")->value());
+        std::string package_branch_rate(package_node->first_attribute("branch-rate")->value());
+        std::string package_line_rate(package_node->first_attribute("line-rate")->value());
+
+        bool process = true;
+
+        //Skip any ignored package
+        for(auto& ignore : ignore_packages){
+            if(std::mismatch(ignore.begin(), ignore.end(), package_name.begin()).first == ignore.end()){
+                process = false;
+                break;
+            }
+        }
+
+        //Skip the entire package is no coverage
+        if(package_branch_rate == "0.0" && package_line_rate == "0.0"){
+            process = false;
+        }
+
+        //Skip package that are already existing in target
+        for(auto* target_package_node = packages_target->first_node("package"); target_package_node; target_package_node = target_package_node->next_sibling()){
+            std::string source_package_name(target_package_node->first_attribute("name")->value());
+
+            if(source_package_name == package_name){
+                process = false;
+                break;
+            }
+        }
+
+        if(process){
+            std::cout << package_name << std::endl;
+
+            //Create the "package" node
+            auto package_target = target_doc.allocate_node(rapidxml::node_element, "package");
+            package_target->append_attribute(target_doc.allocate_attribute("name", package_node->first_attribute("name")->value()));
+            package_target->append_attribute(target_doc.allocate_attribute("branch-rate", package_node->first_attribute("branch-rate")->value()));
+            package_target->append_attribute(target_doc.allocate_attribute("line-rate", package_node->first_attribute("line-rate")->value()));
+            package_target->append_attribute(target_doc.allocate_attribute("complexity", package_node->first_attribute("complexity")->value()));
             packages_target->append_node(package_target);
 
             //Create the "classes" node
