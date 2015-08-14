@@ -1,0 +1,10 @@
+debug
+release
+release_debug
+*.dat
+*.log
+results
+dtw_results
+run
+.passwd
+perf.data*

@@ -1,0 +1,6 @@
+[submodule "make-utils"]
+	path = make-utils
+	url = https://github.com/wichtounet/make-utils.git
+[submodule "lib/rapidxml/include"]
+	path = lib/rapidxml/include
+	url = https://github.com/valnoel/rapidxml.git
