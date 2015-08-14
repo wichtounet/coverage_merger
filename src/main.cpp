@@ -8,6 +8,12 @@
 
 namespace {
 
+//The documents
+
+rapidxml::xml_document<> source_doc;
+rapidxml::xml_document<> inc_doc;
+rapidxml::xml_document<> target_doc;
+
 bool ignore_package(const std::string& name, const std::vector<std::string>& ignore_packages){
     for(auto& ignore : ignore_packages){
         if(std::mismatch(ignore.begin(), ignore.end(), name.begin()).first == ignore.end()){
@@ -52,15 +58,13 @@ int main(int argc, char* argv[]){
     std::cout << "Increment file: " << inc_path << std::endl;
     std::cout << "Target file: " << target_path << std::endl;
 
+    //Parse all documents
+
     rapidxml::file<> source_file(source_path.c_str());
-    rapidxml::xml_document<> source_doc;
     source_doc.parse<0>(source_file.data());
 
     rapidxml::file<> inc_file(inc_path.c_str());
-    rapidxml::xml_document<> inc_doc;
     inc_doc.parse<0>(inc_file.data());
-
-    rapidxml::xml_document<> target_doc;
 
     std::cout << "Documents parsed" << std::endl;
 
@@ -72,9 +76,10 @@ int main(int argc, char* argv[]){
     auto packages_source = source_root_node->first_node("packages");
     auto packages_inc = inc_root_node->first_node("packages");
 
-    //Create root node in target
+    //Create root node in target (rates attributes are not copied on purpose)
     auto* target_root_node = target_doc.allocate_node(rapidxml::node_element, "coverage");
-    //TODO Copy attributes from source
+    target_root_node->append_attribute(target_doc.allocate_attribute("version", source_root_node->first_attribute("version")->value()));
+    target_root_node->append_attribute(target_doc.allocate_attribute("timestamp", source_root_node->first_attribute("timestamp")->value()));
     target_doc.append_node(target_root_node);
 
     //Copy directly the "sources" node
