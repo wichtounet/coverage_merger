@@ -25,11 +25,9 @@ bool ignore_package(const std::string& name, const std::vector<std::string>& ign
 }
 
 rapidxml::xml_node<>* copy_package(rapidxml::xml_document<>& source_doc, rapidxml::xml_node<>* package_node){
-    //Create the "package" node
+    //Create the "package" node (rates are not copied on purpose)
     auto package_target = target_doc.allocate_node(rapidxml::node_element, "package");
     package_target->append_attribute(target_doc.allocate_attribute("name", package_node->first_attribute("name")->value()));
-    package_target->append_attribute(target_doc.allocate_attribute("branch-rate", package_node->first_attribute("branch-rate")->value()));
-    package_target->append_attribute(target_doc.allocate_attribute("line-rate", package_node->first_attribute("line-rate")->value()));
     package_target->append_attribute(target_doc.allocate_attribute("complexity", package_node->first_attribute("complexity")->value()));
 
     //Create the "classes" node
