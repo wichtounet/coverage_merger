@@ -54,6 +54,8 @@ rapidxml::xml_node<>* copy_package(rapidxml::xml_document<>& source_doc, rapidxm
 } //end of anonymous namespace
 
 int main(int argc, char* argv[]){
+    bool verbose = false;
+
     //Argument counter
     std::size_t i = 1;
 
@@ -66,6 +68,8 @@ int main(int argc, char* argv[]){
 
         if(std::mismatch(ignore.begin(), ignore.end(), arg.begin()).first == ignore.end()){
             ignore_packages.emplace_back(arg.begin() + ignore.size(), arg.end());
+        } else if(arg == "--verbose"){
+            verbose = true;
         } else {
             break;
         }
@@ -133,6 +137,10 @@ int main(int argc, char* argv[]){
         }
 
         if(process){
+            if(verbose){
+                std::cout << "Copy package " << package_name << " from source to target" << std::endl;
+            }
+
             //Copy the package into the target (ignoring uncovered classes)
             packages_target->append_node(copy_package(source_doc, package_node));
         }
@@ -166,8 +174,64 @@ int main(int argc, char* argv[]){
         }
 
         if(process){
+            if(verbose){
+                std::cout << "Copy package " << package_name << " from inc to target" << std::endl;
+            }
+
             //Copy the package into the target (ignoring uncovered classes)
             packages_target->append_node(copy_package(inc_doc, package_node));
+        }
+    }
+
+    //3. Copy all relevant classes not present in target from inc -> target
+
+    for(auto* package_inc = packages_inc->first_node("package"); package_inc; package_inc = package_inc->next_sibling()){
+        std::string package_name(package_inc->first_attribute("name")->value());
+
+        rapidxml::xml_node<>* package_target = nullptr;
+
+        for(auto* target_package = packages_target->first_node("package"); target_package; target_package = target_package->next_sibling()){
+            std::string source_package_name(target_package->first_attribute("name")->value());
+
+            if(source_package_name == package_name){
+                package_target = target_package;
+
+                break;
+            }
+        }
+
+        //If the package is not found, it means it has been filtered in the previous step
+        if(!package_target){
+            continue;
+        }
+
+        auto classes_inc = package_inc->first_node("classes");
+        auto classes_target = package_target->first_node("classes");
+
+        for(auto* class_inc = classes_inc->first_node("class"); class_inc; class_inc = class_inc->next_sibling()){
+            std::string class_name(class_inc->first_attribute("name")->value());
+            std::string class_branch_rate(class_inc->first_attribute("branch-rate")->value());
+            std::string class_line_rate(class_inc->first_attribute("line-rate")->value());
+
+            if(class_branch_rate == "0.0" && class_line_rate == "0.0"){
+                continue;
+            }
+
+            bool found = false;
+            for(auto* class_target = classes_target->first_node("class"); class_target; class_target = class_target->next_sibling()){
+                if(class_name == class_inc->first_attribute("name")->value()){
+                    found = true;
+                    break;
+                }
+            }
+
+            if(!found){
+                if(verbose){
+                    std::cout << "Copy class " << class_name << " from inc to target" << std::endl;
+                }
+
+            //TODO
+            }
         }
     }
 
