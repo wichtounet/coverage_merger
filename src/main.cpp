@@ -11,7 +11,6 @@ namespace {
 //The documents
 
 rapidxml::xml_document<> source_doc;
-rapidxml::xml_document<> inc_doc;
 rapidxml::xml_document<> target_doc;
 
 bool ignore_package(const std::string& name, const std::vector<std::string>& ignore_packages){
@@ -82,30 +81,46 @@ int main(int argc, char* argv[]){
 
     //Collect the paths
     std::string source_path(argv[i]);
-    std::string inc_path(argv[i+1]);
-    std::string target_path(argv[i+2]);
+    std::string target_path(argv[argc - 1]);
 
-    std::cout << "Source file: " << source_path << std::endl;
-    std::cout << "Increment file: " << inc_path << std::endl;
-    std::cout << "Target file: " << target_path << std::endl;
+    if(verbose){
+        std::cout << "Source file: " << source_path << std::endl;
+        std::cout << "Target file: " << target_path << std::endl;
+    }
+
+    std::vector<std::string> inc_paths;
+
+    for(i = i + 1; i < std::size_t(argc) - 1; ++i){
+        if(verbose){
+            std::cout << "Increment file: " << argv[i] << std::endl;
+        }
+
+        inc_paths.emplace_back(argv[i]);
+    }
 
     //Parse all documents
 
     rapidxml::file<> source_file(source_path.c_str());
     source_doc.parse<0>(source_file.data());
 
-    rapidxml::file<> inc_file(inc_path.c_str());
-    inc_doc.parse<0>(inc_file.data());
+    std::vector<rapidxml::xml_document<>> inc_docs(inc_paths.size());
+    std::vector<rapidxml::file<>> inc_files;
+
+    for(std::size_t i = 0; i < inc_paths.size(); ++i){
+        auto& inc_path = inc_paths[i];
+
+        inc_files.emplace_back(inc_path.c_str());
+
+        inc_docs[i].parse<0>(inc_files.back().data());
+    }
 
     std::cout << "Documents parsed" << std::endl;
 
     //Find the root nodes
     auto source_root = source_doc.first_node("coverage");
-    auto inc_root = inc_doc.first_node("coverage");
 
     //Find the "packages" nodes
     auto packages_source = source_root->first_node("packages");
-    auto packages_inc = inc_root->first_node("packages");
 
     //Create root node in target (rates attributes are not copied on purpose)
     auto* target_root = target_doc.allocate_node(rapidxml::node_element, "coverage");
@@ -148,89 +163,99 @@ int main(int argc, char* argv[]){
 
     //2. Copy all relevant packages not present in target from inc -> target
 
-    for(auto* package_node = packages_inc->first_node("package"); package_node; package_node = package_node->next_sibling()){
-        std::string package_name(package_node->first_attribute("name")->value());
-        std::string package_branch_rate(package_node->first_attribute("branch-rate")->value());
-        std::string package_line_rate(package_node->first_attribute("line-rate")->value());
+    for(auto& inc_doc : inc_docs){
+        auto inc_root = inc_doc.first_node("coverage");
+        auto packages_inc = inc_root->first_node("packages");
 
-        //Skip any ignored package
-        bool process = !ignore_package(package_name, ignore_packages);
+        for(auto* package_node = packages_inc->first_node("package"); package_node; package_node = package_node->next_sibling()){
+            std::string package_name(package_node->first_attribute("name")->value());
+            std::string package_branch_rate(package_node->first_attribute("branch-rate")->value());
+            std::string package_line_rate(package_node->first_attribute("line-rate")->value());
 
-        //Skip the entire package is no coverage
-        if(package_branch_rate == "0.0" && package_line_rate == "0.0"){
-            process = false;
-        }
+            //Skip any ignored package
+            bool process = !ignore_package(package_name, ignore_packages);
 
-        //Skip package that are already existing in target
-        if(process){
-            for(auto* target_package = packages_target->first_node("package"); target_package; target_package = target_package->next_sibling()){
-                std::string source_package_name(target_package->first_attribute("name")->value());
+            //Skip the entire package is no coverage
+            if(package_branch_rate == "0.0" && package_line_rate == "0.0"){
+                process = false;
+            }
 
-                if(source_package_name == package_name){
-                    process = false;
-                    break;
+            //Skip package that are already existing in target
+            if(process){
+                for(auto* target_package = packages_target->first_node("package"); target_package; target_package = target_package->next_sibling()){
+                    std::string source_package_name(target_package->first_attribute("name")->value());
+
+                    if(source_package_name == package_name){
+                        process = false;
+                        break;
+                    }
                 }
             }
-        }
 
-        if(process){
-            if(verbose){
-                std::cout << "Copy package " << package_name << " from inc to target" << std::endl;
+            if(process){
+                if(verbose){
+                    std::cout << "Copy package " << package_name << " from inc to target" << std::endl;
+                }
+
+                //Copy the package into the target (ignoring uncovered classes)
+                packages_target->append_node(copy_package(inc_doc, package_node));
             }
-
-            //Copy the package into the target (ignoring uncovered classes)
-            packages_target->append_node(copy_package(inc_doc, package_node));
         }
     }
 
     //3. Copy all relevant classes not present in target from inc -> target
 
-    for(auto* package_inc = packages_inc->first_node("package"); package_inc; package_inc = package_inc->next_sibling()){
-        std::string package_name(package_inc->first_attribute("name")->value());
+    for(auto& inc_doc : inc_docs){
+        auto inc_root = inc_doc.first_node("coverage");
+        auto packages_inc = inc_root->first_node("packages");
 
-        rapidxml::xml_node<>* package_target = nullptr;
+        for(auto* package_inc = packages_inc->first_node("package"); package_inc; package_inc = package_inc->next_sibling()){
+            std::string package_name(package_inc->first_attribute("name")->value());
 
-        for(auto* target_package = packages_target->first_node("package"); target_package; target_package = target_package->next_sibling()){
-            std::string source_package_name(target_package->first_attribute("name")->value());
+            rapidxml::xml_node<>* package_target = nullptr;
 
-            if(source_package_name == package_name){
-                package_target = target_package;
+            for(auto* target_package = packages_target->first_node("package"); target_package; target_package = target_package->next_sibling()){
+                std::string source_package_name(target_package->first_attribute("name")->value());
 
-                break;
-            }
-        }
+                if(source_package_name == package_name){
+                    package_target = target_package;
 
-        //If the package is not found, it means it has been filtered in the previous step
-        if(!package_target){
-            continue;
-        }
-
-        auto classes_inc = package_inc->first_node("classes");
-        auto classes_target = package_target->first_node("classes");
-
-        for(auto* class_inc = classes_inc->first_node("class"); class_inc; class_inc = class_inc->next_sibling()){
-            std::string class_name(class_inc->first_attribute("name")->value());
-            std::string class_branch_rate(class_inc->first_attribute("branch-rate")->value());
-            std::string class_line_rate(class_inc->first_attribute("line-rate")->value());
-
-            if(class_branch_rate == "0.0" && class_line_rate == "0.0"){
-                continue;
-            }
-
-            bool found = false;
-            for(auto* class_target = classes_target->first_node("class"); class_target; class_target = class_target->next_sibling()){
-                if(class_name == class_inc->first_attribute("name")->value()){
-                    found = true;
                     break;
                 }
             }
 
-            if(!found){
-                if(verbose){
-                    std::cout << "Copy class " << class_name << " from inc to target" << std::endl;
+            //If the package is not found, it means it has been filtered in the previous step
+            if(!package_target){
+                continue;
+            }
+
+            auto classes_inc = package_inc->first_node("classes");
+            auto classes_target = package_target->first_node("classes");
+
+            for(auto* class_inc = classes_inc->first_node("class"); class_inc; class_inc = class_inc->next_sibling()){
+                std::string class_name(class_inc->first_attribute("name")->value());
+                std::string class_branch_rate(class_inc->first_attribute("branch-rate")->value());
+                std::string class_line_rate(class_inc->first_attribute("line-rate")->value());
+
+                if(class_branch_rate == "0.0" && class_line_rate == "0.0"){
+                    continue;
                 }
 
-            //TODO
+                bool found = false;
+                for(auto* class_target = classes_target->first_node("class"); class_target; class_target = class_target->next_sibling()){
+                    if(class_name == class_target->first_attribute("name")->value()){
+                        found = true;
+                        break;
+                    }
+                }
+
+                if(!found){
+                    if(verbose){
+                        std::cout << "Copy class " << class_name << " from inc to target" << std::endl;
+                    }
+
+                    classes_target->append_node(inc_doc.clone_node(class_inc));
+                }
             }
         }
     }
