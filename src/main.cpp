@@ -192,6 +192,32 @@ int main(int argc, char* argv[]){
                 }
             }
 
+            //Skip package if there is a better package candidate in the incs
+            if(process){
+                for(auto& other_inc_doc : inc_docs){
+                    if(&inc_doc != &other_inc_doc){
+                        auto other_inc_root = other_inc_doc.first_node("coverage");
+                        auto other_packages_inc = other_inc_root->first_node("packages");
+
+                        for(auto* opi = other_packages_inc->first_node("package"); opi; opi = opi->next_sibling()){
+                            std::string other_package_name(opi->first_attribute("name")->value());
+                            std::string other_package_line_rate(opi->first_attribute("line-rate")->value());
+
+                            if(other_package_name == package_name){
+                                if(std::stod(package_line_rate) < std::stod(other_package_line_rate)){
+                                    process = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if(!process){
+                            break;
+                        }
+                    }
+                }
+            }
+
             if(process){
                 if(verbose){
                     std::cout << "Copy package " << package_name << " from inc to target" << std::endl;
