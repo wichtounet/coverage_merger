@@ -36,7 +36,6 @@ rapidxml::xml_node<>* copy_package(rapidxml::xml_document<>& source_doc, rapidxm
     auto classes_sources = package_node->first_node("classes");
 
     for(auto* class_source = classes_sources->first_node("class"); class_source; class_source = class_source->next_sibling()){
-        std::string class_name(class_source->first_attribute("name")->value());
         std::string class_branch_rate(class_source->first_attribute("branch-rate")->value());
         std::string class_line_rate(class_source->first_attribute("line-rate")->value());
 
