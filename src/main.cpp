@@ -250,11 +250,52 @@ int main(int argc, char* argv[]){
                 }
 
                 if(!found){
-                    if(verbose){
-                        std::cout << "Copy class " << class_name << " from inc to target" << std::endl;
+                    bool better = false;
+
+                    //Check if there is a better candidate
+                    for(auto& other_inc_doc : inc_docs){
+                        if(&inc_doc != &other_inc_doc){
+                            auto other_inc_root = other_inc_doc.first_node("coverage");
+                            auto other_packages_inc = other_inc_root->first_node("packages");
+
+                            for(auto* opi = other_packages_inc->first_node("package"); opi; opi = opi->next_sibling()){
+                                std::string other_package_name(opi->first_attribute("name")->value());
+
+                                if(other_package_name == package_name){
+                                    auto other_classes_inc = opi->first_node("classes");
+
+                                    for(auto* oci = other_classes_inc->first_node("class"); oci; oci = oci->next_sibling()){
+                                        std::string other_class_name(oci->first_attribute("name")->value());
+                                        std::string other_class_line_rate(oci->first_attribute("line-rate")->value());
+
+                                        if(other_class_name == class_name){
+                                    std::cout << "other class" << std::endl;
+                                            if(std::stod(class_line_rate) < std::stod(other_class_line_rate)){
+                                                better = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if(better){
+                                    break;
+                                }
+                            }
+                        }
+
+                        if(better){
+                            break;
+                        }
                     }
 
-                    classes_target->append_node(inc_doc.clone_node(class_inc));
+                    if(!better){
+                        if(verbose){
+                            std::cout << "Copy class " << class_name << " from inc to target" << std::endl;
+                        }
+
+                        classes_target->append_node(inc_doc.clone_node(class_inc));
+                    }
                 }
             }
         }
