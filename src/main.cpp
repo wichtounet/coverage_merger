@@ -202,11 +202,9 @@ int main(int argc, char* argv[]){
                             std::string other_package_name(opi->first_attribute("name")->value());
                             std::string other_package_line_rate(opi->first_attribute("line-rate")->value());
 
-                            if(other_package_name == package_name){
-                                if(std::stod(package_line_rate) < std::stod(other_package_line_rate)){
-                                    process = false;
-                                    break;
-                                }
+                            if(other_package_name == package_name && std::stod(package_line_rate) < std::stod(other_package_line_rate)){
+                                process = false;
+                                break;
                             }
                         }
 
@@ -293,11 +291,9 @@ int main(int argc, char* argv[]){
                                         std::string other_class_name(oci->first_attribute("name")->value());
                                         std::string other_class_line_rate(oci->first_attribute("line-rate")->value());
 
-                                        if(other_class_name == class_name){
-                                            if(std::stod(class_line_rate) < std::stod(other_class_line_rate)){
-                                                better = true;
-                                                break;
-                                            }
+                                        if(other_class_name == class_name && std::stod(class_line_rate) < std::stod(other_class_line_rate)){
+                                            better = true;
+                                            break;
                                         }
                                     }
                                 }
