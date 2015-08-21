@@ -295,7 +295,6 @@ int main(int argc, char* argv[]){
                                         std::string other_class_line_rate(oci->first_attribute("line-rate")->value());
 
                                         if(other_class_name == class_name){
-                                    std::cout << "other class" << std::endl;
                                             if(std::stod(class_line_rate) < std::stod(other_class_line_rate)){
                                                 better = true;
                                                 break;
