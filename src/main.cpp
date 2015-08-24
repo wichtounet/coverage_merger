@@ -330,6 +330,98 @@ int main(int argc, char* argv[]){
         }
     }
 
+    //4. Copy missing lines from inc to target
+
+    for(auto& inc_doc : inc_docs){
+        auto inc_root = inc_doc.first_node("coverage");
+        auto packages_inc = inc_root->first_node("packages");
+
+        for(auto* package_inc = packages_inc->first_node("package"); package_inc; package_inc = package_inc->next_sibling()){
+            std::string package_name(package_inc->first_attribute("name")->value());
+
+            rapidxml::xml_node<>* package_target = nullptr;
+
+            for(auto* target_package = packages_target->first_node("package"); target_package; target_package = target_package->next_sibling()){
+                std::string source_package_name(target_package->first_attribute("name")->value());
+
+                if(source_package_name == package_name){
+                    package_target = target_package;
+
+                    break;
+                }
+            }
+
+            //If the package is not found, it means it has been filtered in the previous step
+            if(!package_target){
+                continue;
+            }
+
+            auto classes_inc = package_inc->first_node("classes");
+            auto classes_target = package_target->first_node("classes");
+
+            for(auto* class_inc = classes_inc->first_node("class"); class_inc; class_inc = class_inc->next_sibling()){
+                std::string class_name(class_inc->first_attribute("name")->value());
+                std::string class_branch_rate(class_inc->first_attribute("branch-rate")->value());
+                std::string class_line_rate(class_inc->first_attribute("line-rate")->value());
+
+                rapidxml::xml_node<>* class_target = nullptr;
+
+                for(auto* ct = classes_target->first_node("class"); ct; ct = ct->next_sibling()){
+                    if(class_name == ct->first_attribute("name")->value()){
+                        class_target = ct;
+                        break;
+                    }
+                }
+
+                if(!class_target){
+                    continue;
+                }
+
+                auto lines_inc = class_inc->first_node("lines");
+                auto lines_target = class_target->first_node("lines");
+
+                for(auto* line_inc = lines_inc->first_node("line"); line_inc; line_inc = lines_inc->next_sibling()){
+                    std::string branch(line_inc->first_attribute("branch")->value());
+
+                    auto inc_hits = std::stod(line_inc->first_attribute("hits")->value());
+
+                    if(branch == "false" && inc_hits > 0){
+                        std::string number(line_inc->first_attribute("number")->value());
+
+                        bool found = false;
+
+                        for(auto* line_target = lines_target->first_node("line"); line_target; line_target = lines_target->next_sibling()){
+                            if(number == line_target->first_attribute("number")->value()){
+                                auto target_hits = std::stod(line_target->first_attribute("hits")->value());
+
+                                if(target_hits == 0){
+                                    if(verbose){
+                                        std::cout << "Replace line in target (hits = 0 before)" << std::endl;
+                                    }
+
+                                    line_target->remove_attribute(line_target->first_attribute("hits"));
+                                    line_target->append_attribute(target_doc.allocate_attribute("hits", line_inc->first_attribute("hits")->value()));
+                                }
+
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if(!found){
+                            if(verbose){
+                                std::cout << "Copy line from inc to target (not present before)" << std::endl;
+                            }
+
+                            auto* line_target = inc_doc.clone_node(line_inc);
+                            lines_target->append_node(line_target);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     //Write the target doc
     std::ofstream target_stream(target_path);
     target_stream << target_doc;
