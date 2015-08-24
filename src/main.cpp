@@ -42,6 +42,10 @@ rapidxml::xml_node<>* copy_package(rapidxml::xml_document<>& source_doc, rapidxm
         if(!(class_branch_rate == "0.0" && class_line_rate == "0.0")){
             //Copy "class" node into target
             auto* class_target = source_doc.clone_node(class_source);
+
+            class_target->remove_attribute(class_target->first_attribute("branch-rate"));
+            class_target->remove_attribute(class_target->first_attribute("line-rate"));
+
             classes_target->append_node(class_target);
         }
     }
@@ -314,7 +318,12 @@ int main(int argc, char* argv[]){
                             std::cout << "Copy class " << class_name << " from inc to target" << std::endl;
                         }
 
-                        classes_target->append_node(inc_doc.clone_node(class_inc));
+                        auto* class_target = inc_doc.clone_node(class_inc);
+
+                        class_target->remove_attribute(class_target->first_attribute("branch-rate"));
+                        class_target->remove_attribute(class_target->first_attribute("line-rate"));
+
+                        classes_target->append_node(class_target);
                     }
                 }
             }
