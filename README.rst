@@ -19,3 +19,23 @@ Features:
 Ideally, the tool should also try to maximize the coverage by merging classes
 together. For now, nothing of that sort is done. The first step could be simply
 be to take the class with maximum coverage and simply put in the target.
+
+Build
+#####
+
+You can build and install the tool with the following commands after having clone the repository:
+
+.. code:: bash
+   make
+   sudo make install
+
+Usage
+#####
+
+You can execute the tool with a set of files and a target file, for instance:
+
+.. code:: bash
+    merger file1.xml file2.xml target.xml
+
+You can also ignore some files with the --ignore=xxx switch (ignore everything
+starting with xxx).
